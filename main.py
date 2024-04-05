@@ -1,0 +1,2 @@
+def testMethod():
+    pass
