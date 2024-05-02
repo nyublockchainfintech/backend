@@ -33,7 +33,7 @@ html_template = """
         <title>Chat</title>
     </head>
     <body>
-        <h1>WebSocket Chat</h1>
+        <h1>Hello! Welcome to the WebSocket Chat!</h1>
         <h2>Your ID: <span id="ws-id">{client_id}</span></h2>
         <h3>Your Public Key:</h3>
         <pre id="public-key">{public_key}</pre>
