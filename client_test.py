@@ -3,8 +3,8 @@ from fastapi.responses import HTMLResponse
 from ecdsa import SigningKey, VerifyingKey, NIST384p
 import json
 import base64
-
-app = FastAPI()
+import logging
+from fastapi.middleware.cors import CORSMiddleware
 
 #ecdsa key generation
 
@@ -66,48 +66,77 @@ html_template = """
     </body>
 </html>
 """
+# Initialize logger
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
-#stores active connections, allows messages from each individual client
+# Stores active connections, allows messages from each individual client
 class ConnectionManager:
     def __init__(self):
-        self.active_connections: dict[int, WebSocket] = {}
+        self.active_connections: Dict[int, WebSocket] = {}
 
     async def connect(self, client_id: int, websocket: WebSocket):
         await websocket.accept()
         self.active_connections[client_id] = websocket
+        logger.info(f"Client {client_id} connected")
 
     def disconnect(self, client_id: int):
-        del self.active_connections[client_id]
+        if client_id in self.active_connections:
+            del self.active_connections[client_id]
+            logger.info(f"Client {client_id} disconnected")
 
     async def send_personal_message(self, message: str, client_id: int):
         websocket = self.active_connections.get(client_id)
         if websocket:
             await websocket.send_text(message)
+            logger.info(f"Sent personal message to client {client_id}: {message}")
 
     async def broadcast(self, message: str):
-        for websocket in self.active_connections.values():
-            message = """
-                    pgn: 1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 7. Bb3 d6 8. c3 O-O 9. h3 Nb8 10. d4 Nbd7 
-                    """         
-            signature = client_private_keys[1].sign(b"message")
-            payload = {
-                "signature": str(signature),
-                "message":message
-            }
-            await websocket.send_text(json.dumps(payload))
+        for client_id, websocket in self.active_connections.items():
+            try:
+                await websocket.send_text(message)
+                logger.info(f"Broadcast message to client {client_id}: {message}")
+            except Exception as e:
+                logger.error(f"Failed to send message to client {client_id}: {e}")
 
 manager = ConnectionManager()
+
+app = FastAPI()
+
+origins = [
+    "http://localhost.tiangolo.com",
+    "https://localhost.tiangolo.com",
+    "http://localhost",
+    "http://localhost:8080",
+    "http://localhost:5173",
+    "http://127.0.0.1",
+    "http://127.0.0.1:8000",
+    "https://backend-production-d3db.up.railway.app/",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/{client_id}")
 async def get(client_id: int):
     if client_id not in client_public_keys_pem:
         raise HTTPException(status_code=404, detail="Client ID not found")
     public_key = client_public_keys_pem[client_id].replace("\n", "\\n")
-    # Highlight: Ensure the client_id is passed as an integer to the format() method
     return HTMLResponse(html_template.format(client_id=client_id, public_key=public_key))
 
 @app.websocket("/ws/{client_id}")
 async def websocket_endpoint(websocket: WebSocket, client_id: int):
+    # Check origin header to ensure it's allowed
+    origin = websocket.headers.get("origin")
+    if origin not in origins:
+        await websocket.close(code=1008)
+        return
+    
     await manager.connect(client_id, websocket)
     try:
         while True:
