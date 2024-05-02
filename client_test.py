@@ -5,6 +5,7 @@ import json
 import base64
 import logging
 from fastapi.middleware.cors import CORSMiddleware
+import os
 
 #ecdsa key generation
 
@@ -32,7 +33,7 @@ html_template = """
         <title>Chat</title>
     </head>
     <body>
-        <h1>WebSocket Chat</h1>
+        <h1>Hello! Welcome to the WebSocket Chat!</h1>
         <h2>Your ID: <span id="ws-id">{client_id}</span></h2>
         <h3>Your Public Key:</h3>
         <pre id="public-key">{public_key}</pre>
@@ -48,7 +49,7 @@ html_template = """
             document.querySelector("#ws-id").textContent = client_id.toString();
             document.querySelector("#public-key").textContent = public_key;
             // Highlight: Explicitly convert client_id to a string for WebSocket URL
-            var ws = new WebSocket('ws://localhost:8000/ws/' + client_id.toString());
+            var ws = new WebSocket('ws://{server_name}/ws/' + client_id.toString());
             ws.onmessage = function(event) {{
                 var messages = document.getElementById('messages');
                 var message = document.createElement('li');
@@ -116,7 +117,7 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -127,7 +128,7 @@ async def get(client_id: int):
     if client_id not in client_public_keys_pem:
         raise HTTPException(status_code=404, detail="Client ID not found")
     public_key = client_public_keys_pem[client_id].replace("\n", "\\n")
-    return HTMLResponse(html_template.format(client_id=client_id, public_key=public_key))
+    return HTMLResponse(html_template.format(client_id=client_id, public_key=public_key, server_name=os.environ.get("SERVER_NAME", "localhost:8000")))
 
 @app.websocket("/ws/{client_id}")
 async def websocket_endpoint(websocket: WebSocket, client_id: int):
