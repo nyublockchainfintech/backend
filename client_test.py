@@ -48,7 +48,7 @@ html_template = """
             document.querySelector("#ws-id").textContent = client_id.toString();
             document.querySelector("#public-key").textContent = public_key;
             // Highlight: Explicitly convert client_id to a string for WebSocket URL
-            var ws = new WebSocket('ws://localhost:8000/ws/' + client_id.toString());
+            var ws = new WebSocket('ws://backend-production-d3db.up.railway.app/ws/' + client_id.toString());
             ws.onmessage = function(event) {{
                 var messages = document.getElementById('messages');
                 var message = document.createElement('li');
@@ -116,7 +116,7 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
