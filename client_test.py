@@ -113,6 +113,7 @@ origins = [
     "http://127.0.0.1",
     "http://127.0.0.1:8000",
     "https://backend-production-d3db.up.railway.app/",
+    # "https://chessbnf.netlify.app/"
 ]
 
 app.add_middleware(
@@ -132,12 +133,6 @@ async def get(client_id: int):
 
 @app.websocket("/ws/{client_id}")
 async def websocket_endpoint(websocket: WebSocket, client_id: int):
-    # Check origin header to ensure it's allowed
-    origin = websocket.headers.get("origin")
-    if origin not in origins:
-        await websocket.close(code=1008)
-        return
-    
     await manager.connect(client_id, websocket)
     try:
         while True:
